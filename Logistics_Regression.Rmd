@@ -1,0 +1,99 @@
+---
+title: "NSQIP"
+author: "Chuqi Wang"
+date: "2024-09-19"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(MASS)
+library(car)
+library(readr)
+getwd()
+```
+
+```{r}
+nsqip = read.csv('nsqip_logistic.csv', row.names = 1)
+head(nsqip)
+```
+
+```{r}
+model_full <- glm(composite_outcome ~ ., data = nsqip, family = binomial(link = "logit"))
+
+summary(model_full)
+
+```
+```{r}
+model_stepwise <- stepAIC(model_full, direction = "both")
+```
+
+```{r}
+summary(model_stepwise)
+```
+```{r}
+library(caret)
+
+# Predict class labels (0 or 1)
+predicted_class <- ifelse(predict(model_stepwise, type = "response") > 0.3, 1, 0)
+
+# Create confusion matrix
+confusionMatrix(factor(predicted_class), factor(nsqip$composite_outcome))
+
+```
+
+```{r}
+library(pROC)
+
+predicted_prob <- predict(model_stepwise, type = "response")
+
+roc_curve <- roc(nsqip$composite_outcome, predicted_prob)
+
+plot(roc_curve)
+
+auc(roc_curve)
+
+```
+```{r}
+predicted_probs = predict(model_stepwise, type = "response")
+nsqip$predicted_probability <- predicted_probs
+```
+
+
+
+```{r}
+library(boot)
+
+# 10-fold cross-validation
+cv_result <- cv.glm(nsqip, model_stepwise, K=10)
+
+# Mean cross-validation error
+print(cv_result$delta[1])
+
+```
+
+
+```{r}
+library(lmtest)
+# Compare the stepwise model with a null model (only intercept)
+null_model <- glm(composite_outcome ~ 1, data = nsqip, family = binomial)
+
+# Perform likelihood ratio test
+lrtest(model_stepwise, null_model)
+
+```
+
+```{r}
+library(car)
+
+# Check VIF for multicollinearity
+vif(model_stepwise)
+```
+
+
+
+
+
